@@ -21,10 +21,8 @@ import (
 
 var (
 	grpcport   = flag.String("grpcport", "", "grpcport")
-	servername = flag.String("servername", "server1", "grpcport")
+	servername = flag.String("servername", "server1", "servername")
 	hs         *health.Server
-
-	conn *grpc.ClientConn
 )
 
 const (
