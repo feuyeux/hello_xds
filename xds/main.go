@@ -72,13 +72,12 @@ var (
 )
 
 const (
-	localhost       = "127.0.0.1"
 	Ads             = "ads"
-	backendHostName = "be.cluster.local"
-	listenerName    = "be-srv"
-	routeConfigName = "be-srv-route"
-	clusterName     = "be-srv-cluster"
-	virtualHostName = "be-srv-vs"
+	backendHostName = "hello-server"
+	listenerName    = "hello-service"
+	routeConfigName = "hello-service-route"
+	clusterName     = "hello-service-cluster"
+	virtualHostName = "hello-service-vs"
 )
 
 func init() {
