@@ -41,12 +41,12 @@ func Run(address *string) {
 	c := echo.NewEchoServerClient(conn)
 	ctx := context.Background()
 
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 20; i++ {
 		r, err := c.SayHello(ctx, &echo.EchoRequest{Name: "hello"})
 		if err != nil {
 			log.Fatalf("could not greet: %v", err)
 		}
 		log.Printf("RPC Response: %v %v", i, r)
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }

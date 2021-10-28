@@ -12,6 +12,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"hello_xds/xds/proxy"
 
@@ -70,6 +71,8 @@ var (
 	upstreamPorts UpstreamPorts
 )
 
+var nodeId string
+
 func init() {
 	flag.BoolVar(&debug, "debug", true, "Use debug logging")
 	flag.UintVar(&port, "port", 18000, "Management server port")
@@ -121,48 +124,46 @@ func main() {
 		Requests: 0,
 	}
 	config = cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil)
-
 	srv := xds.NewServer(ctx, config, cb)
 	go RunManagementServer(ctx, srv, port)
 	<-signal
 
 	cb.Report()
-	nodeId := config.GetStatusKeys()[0]
+	nodeId = config.GetStatusKeys()[0]
 	log.Infof("Creating NodeID %s", nodeId)
+	if upstreamPorts == nil {
+		upstreamPorts.Set("50051")
+		upstreamPorts.Set("50052")
+	}
 	var wg sync.WaitGroup
-	trys := 3
+	trys := 10
 	wg.Add(trys)
 	for i := 0; i < trys; i++ {
 		for _, v := range upstreamPorts {
-			endpoints := buildEDS(v)
-			clusters := buildCDS()
-			// RDS
-			routes := buildRDS()
-			// LISTENER
-			listeners := buildLDS()
-			var runtimes []types.Resource
-			var secrets []types.Resource
-
-			// =================================================================================
-			atomic.AddInt32(&version, 1)
-			log.Infof("Creating snapshot Version " + fmt.Sprint(version))
-			/*
-				endpoints []types.Resource,
-				clusters []types.Resource,
-				routes []types.Resource,
-				listeners []types.Resource,
-				runtimes []types.Resource,
-				secrets
-			*/
-			snap := cachev3.NewSnapshot(fmt.Sprint(version), endpoints, clusters, routes, listeners, runtimes, secrets)
-			config.SetSnapshot(nodeId, snap)
-			time.Sleep(15 * time.Second)
+			// ENDPOINT
+			endpoints, isUp := buildEDS(v)
+			if isUp {
+				atomic.AddInt32(&version, 1)
+				log.Infof("Creating snapshot Version " + fmt.Sprint(version))
+				// CLUSTER
+				clusters := buildCDS()
+				// RDS
+				routes := buildRDS()
+				// LISTENER
+				listeners := buildLDS()
+				var runtimes []types.Resource
+				var secrets []types.Resource
+				snap := cachev3.NewSnapshot(fmt.Sprint(version), endpoints, clusters, routes, listeners, runtimes, secrets)
+				config.SetSnapshot(nodeId, snap)
+			}
+			time.Sleep(10 * time.Second)
 		}
 		wg.Done()
 	}
 	wg.Wait()
 }
 
+/**/
 func buildLDS() []types.Resource {
 	log.Infof("Creating LISTENER " + listenerName)
 	hcRds := &hcm.HttpConnectionManager_Rds{
@@ -193,6 +194,7 @@ func buildLDS() []types.Resource {
 		}}
 	return l
 }
+
 func buildRDS() []types.Resource {
 	log.Infof("Creating RDS " + virtualHostName)
 	vh := &route.VirtualHost{
@@ -239,8 +241,8 @@ func buildCDS() []types.Resource {
 	return cls
 }
 
-func buildEDS(v int) []types.Resource {
-	// ENDPOINT
+func buildEDS(v int) ([]types.Resource, bool) {
+	isUp := true
 	log.Infof("Creating ENDPOINT for remoteHost:port %s:%d", backendHostName, v)
 	hst := &core.Address{Address: &core.Address_SocketAddress{
 		SocketAddress: &core.SocketAddress{
@@ -251,6 +253,41 @@ func buildEDS(v int) []types.Resource {
 			},
 		},
 	}}
+
+	identifier := &ep.LbEndpoint_Endpoint{
+		Endpoint: &ep.Endpoint{
+			Address: hst,
+		}}
+
+	// read from snapshot
+	snapshot, err := config.GetSnapshot(nodeId)
+	if err == nil {
+		resources := snapshot.GetResources(resource.EndpointType)
+		if resources != nil {
+			// get eds config
+			res := resources[clusterName]
+			assignment := res.(*endpoint.ClusterLoadAssignment)
+			endpoints := assignment.GetEndpoints()
+			lbEndpoints := endpoints[0].GetLbEndpoints()
+			currentPortValue := uint32(v)
+			for _, lbEndpoint := range lbEndpoints {
+				portValue := lbEndpoint.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
+				if portValue == currentPortValue {
+					isUp = false
+					break
+				}
+			}
+			if isUp {
+				lbEp := &ep.LbEndpoint{
+					HostIdentifier: identifier,
+					HealthStatus:   core.HealthStatus_HEALTHY,
+				}
+				endpoints[0].LbEndpoints = append(lbEndpoints, lbEp)
+			}
+			log.Infof("EPS:%+v", endpoints)
+			return []types.Resource{res}, isUp
+		}
+	}
 
 	//eds := []cache.Resource{
 	eds := []types.Resource{
@@ -265,15 +302,12 @@ func buildEDS(v int) []types.Resource {
 				LoadBalancingWeight: &wrapperspb.UInt32Value{Value: uint32(1000)},
 				LbEndpoints: []*ep.LbEndpoint{
 					{
-						HostIdentifier: &ep.LbEndpoint_Endpoint{
-							Endpoint: &ep.Endpoint{
-								Address: hst,
-							}},
-						HealthStatus: core.HealthStatus_HEALTHY,
+						HostIdentifier: identifier,
+						HealthStatus:   core.HealthStatus_HEALTHY,
 					},
 				},
 			}},
 		},
 	}
-	return eds
+	return eds, isUp
 }
