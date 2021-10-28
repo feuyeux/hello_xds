@@ -18,7 +18,7 @@ type Callbacks struct {
 func (cb *Callbacks) Report() {
 	cb.Mu.Lock()
 	defer cb.Mu.Unlock()
-	log.WithFields(log.Fields{"Fetches": cb.Fetches, "Requests": cb.Requests}).Info("cb.Report()  Callbacks")
+	log.WithFields(log.Fields{"Fetches": cb.Fetches, "Requests": cb.Requests}).Info("Callbacks Report")
 }
 
 func (cb *Callbacks) OnStreamOpen(ctx context.Context, id int64, typ string) error {

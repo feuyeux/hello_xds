@@ -124,8 +124,12 @@ func main() {
 		Requests: 0,
 	}
 	config = cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil)
+
+	//start xds server
 	srv := xds.NewServer(ctx, config, cb)
 	go RunManagementServer(ctx, srv, port)
+
+	log.Infof("Wating xds client to connect ...")
 	<-signal
 
 	cb.Report()
