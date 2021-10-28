@@ -6,5 +6,6 @@ import (
 )
 
 func main() {
-	client.Run()
+	address := "dns:///be.cluster.local:50051"
+	client.Run(&address)
 }

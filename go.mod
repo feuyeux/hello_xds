@@ -9,7 +9,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.26.0
 )
 
 require (

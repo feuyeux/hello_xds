@@ -7,5 +7,6 @@ import (
 )
 
 func main() {
-	client.Run()
+	address := "xds:///be-srv"
+	client.Run(&address)
 }

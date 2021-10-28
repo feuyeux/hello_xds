@@ -26,10 +26,7 @@ var (
 	hs         *health.Server
 )
 
-const (
-	address string = ":50051"
-)
-
+/**/
 type server struct {
 }
 
@@ -38,25 +35,22 @@ func isGrpcRequest(r *http.Request) bool {
 }
 
 func (s *server) SayHello(ctx context.Context, in *echo.EchoRequest) (*echo.EchoReply, error) {
-
-	log.Println("Got rpc: --> ", in.Name)
-
-	return &echo.EchoReply{Message: "Hello " + in.Name + "  from " + *servername}, nil
+	log.Println("-> ", in.Name)
+	return &echo.EchoReply{Message: *servername + " reply " + in.Name}, nil
 }
 
 func (s *server) SayHelloStream(in *echo.EchoRequest, stream echo.EchoServer_SayHelloStreamServer) error {
-
-	log.Println("Got stream:  -->  ")
+	log.Println("-->  ")
 	stream.Send(&echo.EchoReply{Message: "Hello " + in.Name})
 	stream.Send(&echo.EchoReply{Message: "Hello " + in.Name})
-
 	return nil
 }
 
+/**/
 type healthServer struct{}
 
 func (s *healthServer) Check(ctx context.Context, in *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-	log.Printf("Handling grpc Check request")
+	log.Printf("Check request: %v", in)
 	return &healthpb.HealthCheckResponse{Status: healthpb.HealthCheckResponse_SERVING}, nil
 }
 
@@ -65,28 +59,22 @@ func (s *healthServer) Watch(in *healthpb.HealthCheckRequest, srv healthpb.Healt
 }
 
 func main() {
-
 	flag.Parse()
-
 	if *grpcport == "" {
 		fmt.Fprintln(os.Stderr, "missing -grpcport flag (:50051)")
 		flag.Usage()
 		os.Exit(2)
 	}
-
 	lis, err := net.Listen("tcp", *grpcport)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	sopts := []grpc.ServerOption{grpc.MaxConcurrentStreams(10)}
-
 	s := grpc.NewServer(sopts...)
-
 	echo.RegisterEchoServerServer(s, &server{})
 
 	healthpb.RegisterHealthServer(s, &healthServer{})
 	log.Println("Starting grpcServer")
 	s.Serve(lis)
-
 }

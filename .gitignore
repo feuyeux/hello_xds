@@ -1,8 +1,5 @@
 DS_Store
 .idea
-app/src/echo/go.sum
-app/grpc_client
-app/grpc_server
-xds/main
-/docker/xds/go.sum
-/go.sum
+go.sum
+/xds_server
+/grpc_server

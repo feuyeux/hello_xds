@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"flag"
 	"log"
 	"net"
 	"time"
@@ -12,12 +11,7 @@ import (
 	"google.golang.org/grpc/admin"
 )
 
-func Run() {
-	address := flag.String("host", "dns:///be.cluster.local:50051", "dns:///be.cluster.local:50051 or xds-experimental:///be-srv")
-	flag.Parse()
-
-	//address = fmt.Sprintf("xds-experimental:///be-srv")
-
+func Run(address *string) {
 	// (optional) start background grpc admin services to monitor client
 	// "google.golang.org/grpc/admin"
 	go func() {
@@ -33,14 +27,12 @@ func Run() {
 			log.Fatalf("failed to register admin services: %v", err)
 		}
 		defer cleanup()
-
 		if err := grpcServer.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
 
 	conn, err := grpc.Dial(*address, grpc.WithInsecure())
-
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -50,7 +42,7 @@ func Run() {
 	ctx := context.Background()
 
 	for i := 0; i < 15; i++ {
-		r, err := c.SayHello(ctx, &echo.EchoRequest{Name: "unary RPC msg "})
+		r, err := c.SayHello(ctx, &echo.EchoRequest{Name: "hello"})
 		if err != nil {
 			log.Fatalf("could not greet: %v", err)
 		}
